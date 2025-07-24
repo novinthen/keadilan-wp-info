@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
 import { initializeApp } from 'firebase/app';
 import { getAuth, signInWithEmailAndPassword, createUserWithEmailAndPassword, onAuthStateChanged, signOut, signInAnonymously, signInWithCustomToken, sendPasswordResetEmail } from 'firebase/auth';
 import { getFirestore, doc, getDoc, setDoc, addDoc, collection, onSnapshot, query, where, getDocs, updateDoc, serverTimestamp } from 'firebase/firestore';
@@ -9,26 +9,23 @@ import { setLogLevel } from 'firebase/firestore';
 // This new block correctly handles configuration for both Vercel and local development.
 let firebaseConfig;
 
-if (process.env.REACT_APP_FIREBASE_CONFIG) {
-  // Use the environment variable on Vercel
-  firebaseConfig = JSON.parse(process.env.REACT_APP_FIREBASE_CONFIG);
-  // eslint-disable-next-line no-undef
-} else if (typeof __firebase_config !== 'undefined') {
-  // Use the config from the immersive environment
-  // eslint-disable-next-line no-undef
-  firebaseConfig = JSON.parse(__firebase_config);
-} else {
-  // Fallback for local development if no environment variable is set
-  // IMPORTANT: Do not commit real keys to GitHub. This is a placeholder.
-  console.warn("Firebase config not found in environment variables. Using placeholder.");
-  firebaseConfig = {
-    apiKey: "YOUR_API_KEY",
-    authDomain: "YOUR_AUTH_DOMAIN",
-    projectId: "YOUR_PROJECT_ID",
-    storageBucket: "YOUR_STORAGE_BUCKET",
-    messagingSenderId: "YOUR_MESSAGING_SENDER_ID",
-    appId: "YOUR_APP_ID"
-  };
+try {
+    if (process.env.REACT_APP_FIREBASE_CONFIG) {
+      // Use the environment variable on Vercel
+      firebaseConfig = JSON.parse(process.env.REACT_APP_FIREBASE_CONFIG);
+      // eslint-disable-next-line no-undef
+    } else if (typeof __firebase_config !== 'undefined') {
+      // Use the config from the immersive environment
+      // eslint-disable-next-line no-undef
+      firebaseConfig = JSON.parse(__firebase_config);
+    } else {
+      // Fallback for local development if no environment variable is set
+      console.warn("Firebase config not found in environment variables. This is expected for local development but will fail if deployed.");
+      firebaseConfig = { apiKey: "INVALID_KEY" }; // Intentionally invalid to fail fast
+    }
+} catch (e) {
+    console.error("Could not parse Firebase config:", e);
+    firebaseConfig = { apiKey: "INVALID_KEY" }; // Fail gracefully
 }
 
 
@@ -64,8 +61,7 @@ const logUserActivity = async (userId, type, details = {}) => {
 
 
 // --- Main App Component ---
-
-export default function App() {
+function AppContainer() {
     const [user, setUser] = useState(null);
     const [authReady, setAuthReady] = useState(false);
     const [userData, setUserData] = useState(null);
@@ -130,7 +126,6 @@ export default function App() {
                     await signInWithEmailAndPassword(auth, adminEmail, password);
                 } catch (error) {
                     if (error.code === 'auth/user-not-found') {
-                        // Attempt to create the admin user if it doesn't exist
                         try {
                             const userCredential = await createUserWithEmailAndPassword(auth, adminEmail, password);
                             const adminUid = userCredential.user.uid;
@@ -138,23 +133,22 @@ export default function App() {
                                 username: 'admin', role: 'Admin', cabang: 'HQ', isAdmin: true, createdAt: serverTimestamp(), lastLogin: null
                             });
                         } catch (creationError) {
-                            // This specifically handles errors during the creation process
                             console.error("Admin user creation failed:", creationError);
                             setError("Admin account setup failed. Please contact support.");
                         }
                     } else {
-                        // Handle other sign-in errors like wrong password by re-throwing
                         throw error;
                     }
                 }
             } else {
-                // Handle standard user login
                 const email = username.toLowerCase().includes('@') ? username.toLowerCase() : `${username.toLowerCase()}@keadilan.local`;
                 await signInWithEmailAndPassword(auth, email, password);
             }
         } catch (error) {
             console.error("Login Error:", error);
-            if (error.code === 'auth/wrong-password' || error.code === 'auth/invalid-credential') {
+            if (error.code === 'auth/api-key-not-valid') {
+                setError('Configuration error: Invalid API Key. Please contact support.');
+            } else if (error.code === 'auth/wrong-password' || error.code === 'auth/invalid-credential') {
                 setError('Invalid username or password.');
             } else if (error.code === 'auth/user-not-found') {
                 setError('User does not exist. Please contact admin.');
@@ -173,19 +167,35 @@ export default function App() {
 
     // --- Render Logic ---
     if (!authReady) {
-        return <div className="flex items-center justify-center h-screen bg-gray-900 text-white"><div className="animate-spin rounded-full h-32 w-32 border-t-2 border-b-2 border-blue-500"></div></div>;
+        return (
+            <div className="flex items-center justify-center h-full">
+                <div className="animate-spin rounded-full h-32 w-32 border-t-2 border-b-2 border-white"></div>
+            </div>
+        );
+    }
+
+    // Main view rendering
+    let currentView;
+    switch (view) {
+        case 'dashboard':
+            currentView = <UserDashboard user={user} userData={userData} onLogout={handleLogout} />;
+            break;
+        case 'admin':
+            currentView = <AdminDashboard onLogout={handleLogout} />;
+            break;
+        case 'login':
+        default:
+            currentView = <LoginScreen onLogin={handleLogin} error={error} />;
     }
 
     return (
-        <div className="min-h-screen bg-gray-800 text-gray-100 font-sans">
-            {view === 'login' && <LoginScreen onLogin={handleLogin} error={error} />}
-            {view === 'dashboard' && userData && <UserDashboard user={user} userData={userData} onLogout={handleLogout} />}
-            {view === 'admin' && userData && <AdminDashboard onLogout={handleLogout} />}
+        <div className="w-full h-full flex flex-col items-center justify-center">
+            {currentView}
         </div>
     );
 }
 
-// --- Screens and Components ---
+// --- Screens and Components with new Glassmorphism Style ---
 
 function LoginScreen({ onLogin, error }) {
     const [username, setUsername] = useState('');
@@ -195,43 +205,25 @@ function LoginScreen({ onLogin, error }) {
         e.preventDefault();
         onLogin(username, password);
     };
-
-    const handlePasswordReset = async () => {
-        const userIdentifier = prompt("Please enter your username (e.g., KC_KEPONG) to receive a password reset link.");
-        if (!userIdentifier) return;
-
-        const email = `${userIdentifier.toLowerCase()}@keadilan.local`;
-        try {
-            await sendPasswordResetEmail(auth, email);
-            alert("If an account with that username exists, a password reset link has been sent to the associated email address.");
-        } catch (error) {
-            console.error("Password Reset Error:", error);
-            alert("Could not send password reset email. Please check the username and try again.");
-        }
-    };
-
+    
     return (
-        <div className="flex items-center justify-center min-h-screen bg-gray-900">
-            <div className="w-full max-w-md p-8 space-y-6 bg-gray-800 rounded-xl shadow-lg">
-                <h1 className="text-3xl font-bold text-center text-white">Keadilan WP Info</h1>
-                <p className="text-center text-gray-400">Secure Portal</p>
-                <form onSubmit={handleSubmit} className="space-y-6">
-                    {/* Inputs remain the same */}
-                    <div>
-                        <label className="block mb-2 text-sm font-medium text-gray-300">Username</label>
-                        <input type="text" value={username} onChange={(e) => setUsername(e.target.value)} placeholder="e.g., KC_KEPONG or admin email" className="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500" required />
-                    </div>
-                    <div>
-                        <label className="block mb-2 text-sm font-medium text-gray-300">Password</label>
-                        <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="Password" className="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500" required />
-                    </div>
-                    {error && <p className="text-sm text-center text-red-400">{error}</p>}
-                    <button type="submit" className="w-full px-4 py-2 font-bold text-white bg-blue-600 rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-gray-800 focus:ring-blue-500 transition-colors">Login</button>
-                </form>
-                <div className="text-center">
-                    <button onClick={handlePasswordReset} className="text-sm text-blue-400 hover:underline">Forgot Password?</button>
+        <div className="w-full max-w-md p-8 md:p-10 space-y-6 bg-black/20 backdrop-blur-xl border border-white/20 rounded-3xl shadow-2xl">
+            <h2 className="text-4xl font-bold text-center text-white">Keadilan WP Info</h2>
+            <p className="text-center text-gray-200">Secure Portal</p>
+            <form onSubmit={handleSubmit} className="space-y-6">
+                <div>
+                    <label className="block mb-2 text-lg font-medium text-gray-200">Username</label>
+                    <input type="text" value={username} onChange={(e) => setUsername(e.target.value)} placeholder="e.g., KC_KEPONG" className="w-full px-5 py-3 text-lg bg-white/10 border border-white/20 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#00AEEF] text-white" required />
                 </div>
-            </div>
+                <div>
+                    <label className="block mb-2 text-lg font-medium text-gray-200">Password</label>
+                    <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="Password" className="w-full px-5 py-3 text-lg bg-white/10 border border-white/20 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#00AEEF] text-white" required />
+                </div>
+                {error && <p className="text-md text-center text-red-400 bg-red-900/50 p-3 rounded-xl">{error}</p>}
+                <button type="submit" className="w-full px-5 py-4 text-xl font-bold text-white bg-[#0033A0] rounded-xl hover:bg-[#00AEEF] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-black/20 focus:ring-white transition-all duration-300">
+                    Login
+                </button>
+            </form>
         </div>
     );
 }
@@ -281,21 +273,22 @@ function UserDashboard({ user, userData, onLogout }) {
     };
 
     if (loading) {
-        return <div className="flex items-center justify-center h-screen bg-gray-900 text-white">Loading Dashboard...</div>;
+        return <div className="text-white text-2xl">Loading Dashboard...</div>;
     }
     
-    const renderContent = (newsItem) => (
-        <div key={newsItem.id} className="bg-gray-800 p-6 rounded-lg shadow-md mb-6">
-            <h2 className="text-2xl font-bold text-blue-400 mb-2">{newsItem.title}</h2>
-            <p className="text-gray-300 whitespace-pre-wrap mb-4">{newsItem.content}</p>
-            <div className="bg-gray-700 p-4 rounded-lg mt-4">
-                <h3 className="text-lg font-semibold text-yellow-400 mb-2">Your Assigned Statement:</h3>
+    const renderContent = (newsItem, isArchived = false) => (
+        <div key={newsItem.id} className="bg-black/20 backdrop-blur-xl border border-white/20 rounded-3xl shadow-2xl p-6 md:p-8 mb-8">
+            <h2 className="text-3xl font-bold text-white mb-2">{newsItem.title}</h2>
+             {isArchived && <p className="text-gray-300 text-sm mb-4">Published on: {newsItem.createdAt?.toDate().toLocaleDateString()}</p>}
+            <p className="text-gray-200 whitespace-pre-wrap mb-6 text-lg">{newsItem.content}</p>
+            <div className="bg-black/20 p-6 rounded-2xl mt-4">
+                <h3 className="text-2xl font-semibold text-white mb-3">Your Assigned Statement:</h3>
                 {statement && statement.newsId === newsItem.id ? (
                     <>
-                        <p className="text-gray-200 whitespace-pre-wrap">{statement.content}</p>
+                        <p className="text-gray-100 whitespace-pre-wrap text-lg">{statement.content}</p>
                         <button
                             onClick={() => copyToClipboard(statement.content, newsItem.id)}
-                            className="mt-4 px-4 py-2 bg-green-600 hover:bg-green-700 rounded-md font-semibold transition-colors"
+                            className="mt-6 px-6 py-3 bg-[#00AEEF] hover:bg-[#0033A0] rounded-xl font-semibold transition-all duration-300"
                         >
                             Copy Statement
                         </button>
@@ -308,17 +301,17 @@ function UserDashboard({ user, userData, onLogout }) {
     );
 
     return (
-        <div className="p-4 md:p-8">
-            <header className="flex justify-between items-center mb-8">
-                <div>
-                    <h1 className="text-3xl font-bold text-white">Welcome, {userData.username}</h1>
-                    <p className="text-gray-400">{userData.role} - {userData.cabang}</p>
+        <div className="w-full max-w-5xl p-4 md:p-0">
+            <header className="flex flex-col md:flex-row justify-between items-center mb-10 text-white">
+                <div className="text-center md:text-left mb-4 md:mb-0">
+                    <h1 className="text-4xl font-bold">Welcome, {userData.username}</h1>
+                    <p className="text-xl text-gray-300">{userData.role} - {userData.cabang}</p>
                 </div>
-                <div>
-                     <button onClick={() => setShowArchive(!showArchive)} className="mr-4 px-4 py-2 bg-gray-600 hover:bg-gray-700 rounded-md font-semibold transition-colors">
+                <div className="flex items-center space-x-4">
+                     <button onClick={() => setShowArchive(!showArchive)} className="px-5 py-3 bg-white/10 hover:bg-white/20 rounded-xl font-semibold transition-colors">
                         {showArchive ? 'View Latest' : 'View Archive'}
                     </button>
-                    <button onClick={onLogout} className="px-4 py-2 bg-red-600 hover:bg-red-700 rounded-md font-semibold transition-colors">
+                    <button onClick={onLogout} className="px-5 py-3 bg-[#ED1C24]/80 hover:bg-[#ED1C24] rounded-xl font-semibold transition-colors">
                         Logout
                     </button>
                 </div>
@@ -327,19 +320,19 @@ function UserDashboard({ user, userData, onLogout }) {
                 {!showArchive ? (
                     latestNews ? (
                         <>
-                            <h2 className="text-2xl font-semibold text-gray-300 border-b-2 border-gray-700 pb-2 mb-4">Latest News & Task</h2>
+                            <h2 className="text-3xl font-semibold text-white border-b-2 border-white/20 pb-3 mb-6">Latest News & Task</h2>
                             {renderContent(latestNews)}
                         </>
                     ) : (
-                        <p className="text-center text-gray-400 mt-10">No news available at the moment.</p>
+                        <div className="text-center text-gray-300 mt-10 text-2xl p-10 bg-black/20 rounded-3xl">No news available.</div>
                     )
                 ) : (
                     <>
-                        <h2 className="text-2xl font-semibold text-gray-300 border-b-2 border-gray-700 pb-2 mb-4">Archived News</h2>
+                        <h2 className="text-3xl font-semibold text-white border-b-2 border-white/20 pb-3 mb-6">Archived News</h2>
                         {archive.length > 0 ? (
                             archive.map(item => <ArchivedItem key={item.id} newsItem={item} userId={user.uid} copyToClipboard={copyToClipboard} />)
                         ) : (
-                            <p className="text-center text-gray-400 mt-10">The archive is empty.</p>
+                            <div className="text-center text-gray-300 mt-10 text-2xl p-10 bg-black/20 rounded-3xl">The archive is empty.</div>
                         )}
                     </>
                 )}
@@ -360,18 +353,17 @@ function ArchivedItem({ newsItem, userId, copyToClipboard }) {
     }, [newsItem.id, userId]);
 
     return (
-        <div className="bg-gray-800 p-6 rounded-lg shadow-md mb-6">
-            <h3 className="text-xl font-bold text-blue-400 mb-2">{newsItem.title}</h3>
-            <p className="text-gray-400 text-sm mb-2">Published on: {newsItem.createdAt?.toDate().toLocaleDateString()}</p>
-            <p className="text-gray-300 whitespace-pre-wrap mb-4">{newsItem.content}</p>
-            <div className="bg-gray-700 p-4 rounded-lg mt-4">
-                <h4 className="text-md font-semibold text-yellow-400 mb-2">Your Assigned Statement:</h4>
+        <div className="bg-black/20 backdrop-blur-xl border border-white/20 rounded-3xl shadow-2xl p-6 md:p-8 mb-8">
+            <h3 className="text-2xl font-bold text-white mb-2">{newsItem.title}</h3>
+            <p className="text-gray-300 text-sm mb-4">Published on: {newsItem.createdAt?.toDate().toLocaleDateString()}</p>
+            <div className="bg-black/20 p-6 rounded-2xl mt-4">
+                <h4 className="text-xl font-semibold text-white mb-2">Your Assigned Statement:</h4>
                 {statement ? (
                     <>
-                        <p className="text-gray-200 whitespace-pre-wrap">{statement.content}</p>
+                        <p className="text-gray-100 whitespace-pre-wrap text-lg">{statement.content}</p>
                         <button
                             onClick={() => copyToClipboard(statement.content, newsItem.id)}
-                            className="mt-4 px-3 py-1 bg-green-600 hover:bg-green-700 rounded-md font-semibold text-sm transition-colors"
+                            className="mt-4 px-5 py-2 bg-[#00AEEF] hover:bg-[#0033A0] rounded-xl font-semibold text-md transition-all duration-300"
                         >
                             Copy
                         </button>
@@ -384,21 +376,22 @@ function ArchivedItem({ newsItem, userId, copyToClipboard }) {
     );
 }
 
+
 function AdminDashboard({ onLogout }) {
     const [adminView, setAdminView] = useState('users'); // users, news, activity
 
     return (
-        <div className="flex h-screen">
-            <nav className="w-64 bg-gray-900 p-4 flex flex-col">
-                <h1 className="text-2xl font-bold text-white mb-8">Admin Panel</h1>
-                <button onClick={() => setAdminView('users')} className={`w-full text-left p-3 rounded-md mb-2 ${adminView === 'users' ? 'bg-blue-600' : 'hover:bg-gray-700'}`}>User Management</button>
-                <button onClick={() => setAdminView('news')} className={`w-full text-left p-3 rounded-md mb-2 ${adminView === 'news' ? 'bg-blue-600' : 'hover:bg-gray-700'}`}>News & Statements</button>
-                <button onClick={() => setAdminView('activity')} className={`w-full text-left p-3 rounded-md mb-2 ${adminView === 'activity' ? 'bg-blue-600' : 'hover:bg-gray-700'}`}>User Activity</button>
+        <div className="flex h-screen w-full">
+            <nav className="w-72 bg-black/30 backdrop-blur-xl border-r border-white/20 p-6 flex flex-col">
+                <h1 className="text-3xl font-bold text-white mb-12">Admin Panel</h1>
+                <button onClick={() => setAdminView('users')} className={`w-full text-left p-4 rounded-xl mb-3 text-lg transition-all ${adminView === 'users' ? 'bg-[#00AEEF] text-white' : 'hover:bg-white/10'}`}>User Management</button>
+                <button onClick={() => setAdminView('news')} className={`w-full text-left p-4 rounded-xl mb-3 text-lg transition-all ${adminView === 'news' ? 'bg-[#00AEEF] text-white' : 'hover:bg-white/10'}`}>News & Statements</button>
+                <button onClick={() => setAdminView('activity')} className={`w-full text-left p-4 rounded-xl mb-3 text-lg transition-all ${adminView === 'activity' ? 'bg-[#00AEEF] text-white' : 'hover:bg-white/10'}`}>User Activity</button>
                 <div className="mt-auto">
-                    <button onClick={onLogout} className="w-full p-3 rounded-md bg-red-600 hover:bg-red-700 font-bold">Logout</button>
+                    <button onClick={onLogout} className="w-full p-4 rounded-xl bg-[#ED1C24]/80 hover:bg-[#ED1C24] font-bold text-lg">Logout</button>
                 </div>
             </nav>
-            <main className="flex-1 p-8 bg-gray-800 overflow-y-auto">
+            <main className="flex-1 p-10 overflow-y-auto">
                 {adminView === 'users' && <UserManagement />}
                 {adminView === 'news' && <NewsManagement />}
                 {adminView === 'activity' && <UserActivityLog />}
@@ -456,25 +449,27 @@ function UserManagement() {
         }
     };
     
-    if (loading) return <div>Loading users...</div>;
+    if (loading) return <div className="text-white text-xl">Loading users...</div>;
 
     return (
         <div>
-            <h2 className="text-3xl font-bold mb-6">User Management</h2>
-            <button onClick={handleCreateUsers} className="mb-6 px-4 py-2 bg-green-600 hover:bg-green-700 rounded-md font-bold">Bulk Create All WP Users</button>
-            <div className="bg-gray-900 p-4 rounded-lg">
-                <table className="w-full text-left">
+            <h2 className="text-4xl font-bold mb-8 text-white">User Management</h2>
+            <button onClick={handleCreateUsers} className="mb-8 px-6 py-3 bg-green-600 hover:bg-green-700 rounded-xl font-bold text-lg">
+                Bulk Create All WP Users
+            </button>
+            <div className="bg-black/20 backdrop-blur-xl border border-white/20 rounded-2xl p-6">
+                <table className="w-full text-left text-lg">
                     <thead>
-                        <tr className="border-b border-gray-700">
-                            <th className="p-3">Username</th><th className="p-3">Role</th><th className="p-3">Cabang</th><th className="p-3">Actions</th>
+                        <tr className="border-b border-white/20">
+                            <th className="p-4">Username</th><th className="p-4">Role</th><th className="p-4">Cabang</th><th className="p-4">Actions</th>
                         </tr>
                     </thead>
                     <tbody>
                         {users.map(user => (
-                            <tr key={user.id} className="border-b border-gray-800 hover:bg-gray-800">
-                                <td className="p-3">{user.username}</td><td className="p-3">{user.role}</td><td className="p-3">{user.cabang}</td>
-                                <td className="p-3">
-                                    <button onClick={() => handleAdminPasswordReset(user.username)} className="px-3 py-1 bg-yellow-600 hover:bg-yellow-700 text-white text-sm rounded">Reset Pass</button>
+                            <tr key={user.id} className="border-b border-white/10 hover:bg-white/5">
+                                <td className="p-4">{user.username}</td><td className="p-4">{user.role}</td><td className="p-4">{user.cabang}</td>
+                                <td className="p-4">
+                                    <button onClick={() => handleAdminPasswordReset(user.username)} className="px-4 py-2 bg-yellow-600 hover:bg-yellow-700 text-white text-md rounded-lg">Reset Pass</button>
                                 </td>
                             </tr>
                         ))}
@@ -486,7 +481,6 @@ function UserManagement() {
 }
 
 function NewsManagement() {
-    // This component remains largely the same as before
     const [newsItems, setNewsItems] = useState([]);
     const [title, setTitle] = useState('');
     const [content, setContent] = useState('');
@@ -521,23 +515,23 @@ function NewsManagement() {
 
     return (
         <div>
-            <h2 className="text-3xl font-bold mb-6">News & Statements</h2>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                <div className="bg-gray-900 p-6 rounded-lg">
-                    <h3 className="text-xl font-bold mb-4">Publish New Article</h3>
+            <h2 className="text-4xl font-bold mb-8 text-white">News & Statements</h2>
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                <div className="bg-black/20 backdrop-blur-xl border border-white/20 rounded-2xl p-8">
+                    <h3 className="text-2xl font-bold mb-4">Publish New Article</h3>
                     <form onSubmit={handlePublishNews} className="space-y-4">
-                        <input type="text" value={title} onChange={e => setTitle(e.target.value)} placeholder="News Title" className="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500" />
-                        <textarea value={content} onChange={e => setContent(e.target.value)} placeholder="News content..." rows="6" className="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"></textarea>
-                        <button type="submit" className="w-full px-4 py-2 font-bold text-white bg-blue-600 rounded-md hover:bg-blue-700">Publish News</button>
+                        <input type="text" value={title} onChange={e => setTitle(e.target.value)} placeholder="News Title" className="w-full text-lg px-5 py-3 bg-white/10 border border-white/20 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#00AEEF] text-white" />
+                        <textarea value={content} onChange={e => setContent(e.target.value)} placeholder="News content..." rows="6" className="w-full text-lg px-5 py-3 bg-white/10 border border-white/20 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#00AEEF] text-white"></textarea>
+                        <button type="submit" className="w-full py-3 text-xl font-bold text-white bg-[#0033A0] rounded-xl hover:bg-[#00AEEF] transition-all duration-300">Publish News</button>
                     </form>
                 </div>
-                <div className="bg-gray-900 p-6 rounded-lg">
-                    <h3 className="text-xl font-bold mb-4">Assign Statements</h3>
-                     <div className="max-h-96 overflow-y-auto">
+                <div className="bg-black/20 backdrop-blur-xl border border-white/20 rounded-2xl p-8">
+                    <h3 className="text-2xl font-bold mb-4">Assign Statements</h3>
+                     <div className="max-h-96 overflow-y-auto pr-2">
                         {newsItems.map(item => (
-                            <div key={item.id} onClick={() => setSelectedNewsId(item.id)} className={`p-3 rounded-md mb-2 cursor-pointer ${selectedNewsId === item.id ? 'bg-blue-800' : 'bg-gray-800 hover:bg-gray-700'}`}>
-                                <p className="font-semibold">{item.title}</p>
-                                <p className="text-sm text-gray-400">{item.createdAt?.toDate().toLocaleDateString()}</p>
+                            <div key={item.id} onClick={() => setSelectedNewsId(item.id)} className={`p-4 rounded-xl mb-2 cursor-pointer transition-all ${selectedNewsId === item.id ? 'bg-[#00AEEF]' : 'bg-white/5 hover:bg-white/10'}`}>
+                                <p className="font-semibold text-lg">{item.title}</p>
+                                <p className="text-sm text-gray-300">{item.createdAt?.toDate().toLocaleDateString()}</p>
                             </div>
                         ))}
                     </div>
@@ -549,7 +543,6 @@ function NewsManagement() {
 }
 
 function StatementAssigner({ newsId }) {
-    // This component remains largely the same
     const [users, setUsers] = useState([]);
     const [statements, setStatements] = useState({});
 
@@ -585,17 +578,17 @@ function StatementAssigner({ newsId }) {
     };
 
     return (
-        <div className="mt-8 bg-gray-900 p-6 rounded-lg">
-            <h3 className="text-xl font-bold mb-4">Assign Statements for Selected News</h3>
-            <div className="space-y-4 max-h-[60vh] overflow-y-auto pr-4">
+        <div className="mt-8 bg-black/20 backdrop-blur-xl border border-white/20 rounded-2xl p-8">
+            <h3 className="text-2xl font-bold mb-6">Assign Statements for Selected News</h3>
+            <div className="space-y-4 max-h-[50vh] overflow-y-auto pr-4">
                 {users.map(user => (
                     <div key={user.id}>
-                        <label className="block text-sm font-medium text-gray-300">{user.username} ({user.role})</label>
-                        <textarea value={statements[user.id] || ''} onChange={e => handleStatementChange(user.id, e.target.value)} placeholder={`Enter unique statement for ${user.username}...`} rows="2" className="w-full mt-1 px-4 py-2 bg-gray-700 border border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                        <label className="block text-md font-medium text-gray-200">{user.username} ({user.role})</label>
+                        <textarea value={statements[user.id] || ''} onChange={e => handleStatementChange(user.id, e.target.value)} placeholder={`Enter unique statement for ${user.username}...`} rows="2" className="w-full mt-1 text-lg px-5 py-3 bg-white/10 border border-white/20 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#00AEEF] text-white" />
                     </div>
                 ))}
             </div>
-            <button onClick={handleSaveStatements} className="mt-6 w-full px-4 py-2 font-bold text-white bg-green-600 rounded-md hover:bg-green-700">Save All Statements</button>
+            <button onClick={handleSaveStatements} className="mt-6 w-full py-3 text-xl font-bold text-white bg-green-600 rounded-xl hover:bg-green-700 transition-all">Save All Statements</button>
         </div>
     );
 }
@@ -615,7 +608,7 @@ function UserActivityLog() {
         return () => unsubscribe();
     }, []);
 
-    if (loading) return <div>Loading activity logs...</div>;
+    if (loading) return <div className="text-white text-xl">Loading activity logs...</div>;
 
     if (selectedUser) {
         return <DetailedActivityView user={selectedUser} onBack={() => setSelectedUser(null)} />;
@@ -623,21 +616,21 @@ function UserActivityLog() {
 
     return (
         <div>
-            <h2 className="text-3xl font-bold mb-6">User Activity Overview</h2>
-            <div className="bg-gray-900 p-4 rounded-lg">
-                <table className="w-full text-left">
+            <h2 className="text-4xl font-bold mb-8 text-white">User Activity Overview</h2>
+            <div className="bg-black/20 backdrop-blur-xl border border-white/20 rounded-2xl p-6">
+                <table className="w-full text-left text-lg">
                     <thead>
-                         <tr className="border-b border-gray-700">
-                            <th className="p-3">Username</th><th className="p-3">Last Login</th><th className="p-3">IP Address (Demo)</th><th className="p-3">Details</th>
+                         <tr className="border-b border-white/20">
+                            <th className="p-4">Username</th><th className="p-4">Last Login</th><th className="p-4">IP Address (Demo)</th><th className="p-4">Details</th>
                         </tr>
                     </thead>
                     <tbody>
                         {users.map(user => (
-                            <tr key={user.id} className="border-b border-gray-800 hover:bg-gray-700 cursor-pointer" onClick={() => setSelectedUser(user)}>
-                                <td className="p-3">{user.username}</td>
-                                <td className="p-3">{user.lastLogin ? user.lastLogin.toDate().toLocaleString() : 'Never'}</td>
-                                <td className="p-3">{user.ipAddress || 'N/A'}</td>
-                                <td className="p-3 text-blue-400 hover:underline">View Log</td>
+                            <tr key={user.id} className="border-b border-white/10 hover:bg-white/5 cursor-pointer" onClick={() => setSelectedUser(user)}>
+                                <td className="p-4">{user.username}</td>
+                                <td className="p-4">{user.lastLogin ? user.lastLogin.toDate().toLocaleString() : 'Never'}</td>
+                                <td className="p-4">{user.ipAddress || 'N/A'}</td>
+                                <td className="p-4 text-[#00AEEF] hover:underline">View Log</td>
                             </tr>
                         ))}
                     </tbody>
@@ -661,31 +654,46 @@ function DetailedActivityView({ user, onBack }) {
         return () => unsubscribe();
     }, [user.id]);
 
-    if (loading) return <div>Loading detailed log...</div>;
+    if (loading) return <div className="text-white text-xl">Loading detailed log...</div>;
 
     return (
         <div>
-            <button onClick={onBack} className="mb-6 px-4 py-2 bg-gray-600 hover:bg-gray-700 rounded-md font-bold">&larr; Back to Overview</button>
-            <h2 className="text-3xl font-bold mb-2">Activity Log for {user.username}</h2>
-            <p className="text-gray-400 mb-6">{user.role} - {user.cabang}</p>
-             <div className="bg-gray-900 p-4 rounded-lg">
-                <table className="w-full text-left">
+            <button onClick={onBack} className="mb-8 px-5 py-2 bg-white/10 hover:bg-white/20 rounded-xl font-bold">&larr; Back to Overview</button>
+            <h2 className="text-4xl font-bold mb-2 text-white">Activity Log for {user.username}</h2>
+            <p className="text-gray-300 mb-8 text-xl">{user.role} - {user.cabang}</p>
+             <div className="bg-black/20 backdrop-blur-xl border border-white/20 rounded-2xl p-6">
+                <table className="w-full text-left text-lg">
                     <thead>
-                         <tr className="border-b border-gray-700">
-                            <th className="p-3">Timestamp</th><th className="p-3">Event Type</th><th className="p-3">Details</th>
+                         <tr className="border-b border-white/20">
+                            <th className="p-4">Timestamp</th><th className="p-4">Event Type</th><th className="p-4">Details</th>
                         </tr>
                     </thead>
                     <tbody>
                         {log.map(entry => (
-                            <tr key={entry.id} className="border-b border-gray-800">
-                                <td className="p-3">{entry.timestamp ? entry.timestamp.toDate().toLocaleString() : '...'}</td>
-                                <td className="p-3"><span className={`px-2 py-1 text-xs font-semibold rounded-full ${entry.type === 'LOGIN_SUCCESS' ? 'bg-green-500 text-green-900' : entry.type === 'LOGOUT' ? 'bg-red-500 text-red-900' : 'bg-yellow-500 text-yellow-900'}`}>{entry.type}</span></td>
-                                <td className="p-3 text-sm text-gray-400">{entry.newsId ? `News ID: ${entry.newsId.substring(0,10)}...` : entry.ipAddress || ''}</td>
+                            <tr key={entry.id} className="border-b border-white/10">
+                                <td className="p-4">{entry.timestamp ? entry.timestamp.toDate().toLocaleString() : '...'}</td>
+                                <td className="p-4"><span className={`px-3 py-1 text-sm font-semibold rounded-full ${entry.type === 'LOGIN_SUCCESS' ? 'bg-green-500 text-green-900' : entry.type === 'LOGOUT' ? 'bg-red-500 text-red-900' : 'bg-yellow-500 text-yellow-900'}`}>{entry.type}</span></td>
+                                <td className="p-4 text-gray-300">{entry.newsId ? `News ID: ${entry.newsId.substring(0,10)}...` : entry.ipAddress || ''}</td>
                             </tr>
                         ))}
                     </tbody>
                 </table>
             </div>
+        </div>
+    );
+}
+
+// This is the new root component that applies the background and overall layout
+export default function Root() {
+    return (
+        <div className="min-h-screen w-full bg-gradient-to-br from-[#0033A0] to-[#00AEEF] text-white font-sans flex flex-col items-center p-4 sm:p-6 lg:p-8">
+            <h1 className="text-5xl font-bold text-white my-8 text-center shadow-lg">Keadilan WP Campaign Platform</h1>
+            <main className="w-full h-full flex-1 flex flex-col items-center justify-center">
+                <AppContainer />
+            </main>
+            <footer className="w-full text-center py-6 text-gray-300 mt-8">
+                ©2025 Sungai Siput
+            </footer>
         </div>
     );
 }
