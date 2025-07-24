@@ -6,17 +6,29 @@ import { setLogLevel } from 'firebase/firestore';
 
 // --- Helper Functions & Initial Config ---
 
-// For Firebase JS SDK v7.20.0 and later, measurementId is optional
-const firebaseConfig = {
-  apiKey: "AIzaSyBdJcoiHKZf4g8bfNs_hwQ2te5BCNVwQkM",
-  authDomain: "keadilan-wp-info.firebaseapp.com",
-  projectId: "keadilan-wp-info",
-  storageBucket: "keadilan-wp-info.firebasestorage.app",
-  messagingSenderId: "1097147310925",
-  appId: "1:1097147310925:web:d7ef566764b1b859220d04",
-  measurementId: "G-1YL1HLSP4E"
-};
-const firebaseConfig = JSON.parse(firebaseConfigString);
+// This new block correctly handles configuration for both Vercel and local development.
+let firebaseConfig;
+
+if (process.env.REACT_APP_FIREBASE_CONFIG) {
+  // Use the environment variable on Vercel
+  firebaseConfig = JSON.parse(process.env.REACT_APP_FIREBASE_CONFIG);
+} else if (typeof __firebase_config !== 'undefined') {
+  // Use the config from the immersive environment
+  firebaseConfig = JSON.parse(__firebase_config);
+} else {
+  // Fallback for local development if no environment variable is set
+  // IMPORTANT: Do not commit real keys to GitHub. This is a placeholder.
+  console.warn("Firebase config not found in environment variables. Using placeholder.");
+  firebaseConfig = {
+    apiKey: "YOUR_API_KEY",
+    authDomain: "YOUR_AUTH_DOMAIN",
+    projectId: "YOUR_PROJECT_ID",
+    storageBucket: "YOUR_STORAGE_BUCKET",
+    messagingSenderId: "YOUR_MESSAGING_SENDER_ID",
+    appId: "YOUR_APP_ID"
+  };
+}
+
 
 // Initialize Firebase
 const app = initializeApp(firebaseConfig);
