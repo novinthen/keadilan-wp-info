@@ -13,13 +13,16 @@ import './App.css';
 let firebaseConfig;
 try {
     if (process.env.REACT_APP_FIREBASE_CONFIG) {
-      firebaseConfig = JSON.parse(process.env.REACT_APP_FIREBASE_CONFIG);
-    } else if (typeof __firebase_config !== 'undefined') {
-      firebaseConfig = JSON.parse(__firebase_config);
+        firebaseConfig = JSON.parse(process.env.REACT_APP_FIREBASE_CONFIG);
     } else {
-      console.warn("Firebase config not found in environment variables. This is expected for local development but will fail if deployed.");
-      firebaseConfig = { apiKey: "INVALID_KEY" };
+        console.warn("Firebase config not found in environment variables. This is expected for local development but will fail if deployed.");
+        firebaseConfig = { apiKey: "INVALID_KEY" };
     }
+} catch (e) {
+    console.error("Could not parse Firebase config:", e);
+    firebaseConfig = { apiKey: "INVALID_KEY" };
+}
+
 } catch (e) {
     console.error("Could not parse Firebase config:", e);
     firebaseConfig = { apiKey: "INVALID_KEY" };
