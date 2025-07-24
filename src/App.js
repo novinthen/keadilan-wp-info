@@ -12,8 +12,10 @@ let firebaseConfig;
 if (process.env.REACT_APP_FIREBASE_CONFIG) {
   // Use the environment variable on Vercel
   firebaseConfig = JSON.parse(process.env.REACT_APP_FIREBASE_CONFIG);
+  // eslint-disable-next-line no-undef
 } else if (typeof __firebase_config !== 'undefined') {
   // Use the config from the immersive environment
+  // eslint-disable-next-line no-undef
   firebaseConfig = JSON.parse(__firebase_config);
 } else {
   // Fallback for local development if no environment variable is set
@@ -37,6 +39,7 @@ const db = getFirestore(app);
 setLogLevel('debug'); // For detailed console logs
 
 // App ID - crucial for Firestore paths
+// eslint-disable-next-line no-undef
 const appId = typeof __app_id !== 'undefined' ? __app_id : 'keadilan-wp-info';
 
 // Predefined user roles and cabangs
@@ -100,7 +103,9 @@ export default function App() {
         
         const performInitialSignIn = async () => {
             try {
+                // eslint-disable-next-line no-undef
                 if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
+                    // eslint-disable-next-line no-undef
                     await signInWithCustomToken(auth, __initial_auth_token);
                 } else {
                     await signInAnonymously(auth);
