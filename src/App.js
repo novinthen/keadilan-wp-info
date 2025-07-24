@@ -134,7 +134,7 @@ function AppContainer() {
                             });
                         } catch (creationError) {
                             console.error("Admin user creation failed:", creationError);
-                            setError("Admin account setup failed. Please contact support.");
+                            setError(`Admin setup failed: ${creationError.code}`);
                         }
                     } else {
                         throw error;
@@ -146,6 +146,7 @@ function AppContainer() {
             }
         } catch (error) {
             console.error("Login Error:", error);
+            console.log("Firebase Error Code:", error.code); // For debugging
             if (error.code === 'auth/api-key-not-valid') {
                 setError('Configuration error: Invalid API Key. Please contact support.');
             } else if (error.code === 'auth/wrong-password' || error.code === 'auth/invalid-credential') {
@@ -153,7 +154,8 @@ function AppContainer() {
             } else if (error.code === 'auth/user-not-found') {
                 setError('User does not exist. Please contact admin.');
             } else {
-                setError('An error occurred during login. Please try again.');
+                // Display the actual error code to the user for diagnosis
+                setError(`Login failed with error: ${error.code}`);
             }
         }
     };
