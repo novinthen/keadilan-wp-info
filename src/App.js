@@ -123,7 +123,6 @@ export default function App() {
     // --- Event Handlers ---
     const handleLogin = async (username, password) => {
         setError('');
-        const email = username.toLowerCase().includes('@') ? username.toLowerCase() : `${username.toLowerCase()}@keadilan.local`;
         try {
             if (username.toLowerCase() === 'novinthen@gmail.com' && password === '123456789') {
                 const adminEmail = 'admin@keadilan.local';
@@ -131,20 +130,34 @@ export default function App() {
                     await signInWithEmailAndPassword(auth, adminEmail, password);
                 } catch (error) {
                     if (error.code === 'auth/user-not-found') {
-                       const userCredential = await createUserWithEmailAndPassword(auth, adminEmail, password);
-                       const adminUid = userCredential.user.uid;
-                       await setDoc(doc(db, `artifacts/${appId}/users`, adminUid), {
-                           username: 'admin', role: 'Admin', cabang: 'HQ', isAdmin: true, createdAt: serverTimestamp(), lastLogin: null
-                       });
-                    } else { throw error; }
+                        // Attempt to create the admin user if it doesn't exist
+                        try {
+                            const userCredential = await createUserWithEmailAndPassword(auth, adminEmail, password);
+                            const adminUid = userCredential.user.uid;
+                            await setDoc(doc(db, `artifacts/${appId}/users`, adminUid), {
+                                username: 'admin', role: 'Admin', cabang: 'HQ', isAdmin: true, createdAt: serverTimestamp(), lastLogin: null
+                            });
+                        } catch (creationError) {
+                            // This specifically handles errors during the creation process
+                            console.error("Admin user creation failed:", creationError);
+                            setError("Admin account setup failed. Please contact support.");
+                        }
+                    } else {
+                        // Handle other sign-in errors like wrong password by re-throwing
+                        throw error;
+                    }
                 }
-                return;
+            } else {
+                // Handle standard user login
+                const email = username.toLowerCase().includes('@') ? username.toLowerCase() : `${username.toLowerCase()}@keadilan.local`;
+                await signInWithEmailAndPassword(auth, email, password);
             }
-            await signInWithEmailAndPassword(auth, email, password);
         } catch (error) {
             console.error("Login Error:", error);
-            if (error.code === 'auth/user-not-found' || error.code === 'auth/wrong-password' || error.code === 'auth/invalid-credential') {
+            if (error.code === 'auth/wrong-password' || error.code === 'auth/invalid-credential') {
                 setError('Invalid username or password.');
+            } else if (error.code === 'auth/user-not-found') {
+                setError('User does not exist. Please contact admin.');
             } else {
                 setError('An error occurred during login. Please try again.');
             }
@@ -152,7 +165,9 @@ export default function App() {
     };
 
     const handleLogout = async () => {
-        await logUserActivity(user.uid, 'LOGOUT');
+        if (user) {
+            await logUserActivity(user.uid, 'LOGOUT');
+        }
         await signOut(auth);
     };
 
