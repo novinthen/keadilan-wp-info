@@ -7,6 +7,7 @@ import { useForm } from 'react-hook-form';
 import * as yup from 'yup';
 import { yupResolver } from '@hookform/resolvers/yup';
 import { APP_ID, CABANGS, ROLES, PATHS } from './constants';
+import './App.css';
 
 // --- Firebase Initialization ---
 let firebaseConfig;
@@ -58,24 +59,24 @@ function NewsItem({ newsItem, userId, copyToClipboard, isArchived = false }) {
     }, [newsItem.id, userId]);
 
     return (
-        <div className="bg-white/10 backdrop-blur-xl border border-white/20 rounded-2xl shadow-lg p-6 md:p-8 mb-6 transition-all hover:shadow-xl">
-            <h3 className="text-2xl font-bold text-white mb-3">{newsItem.title}</h3>
-            {isArchived && <p className="text-gray-200 text-sm mb-4">Published: {newsItem.createdAt?.toDate().toLocaleDateString()}</p>}
-            <p className="text-gray-100 whitespace-pre-wrap mb-6 text-base">{newsItem.content}</p>
-            <div className="bg-white/5 p-5 rounded-xl">
-                <h4 className="text-lg font-semibold text-white mb-2">Your Statement:</h4>
+        <div className="news-item">
+            <h3 className="news-title">{newsItem.title}</h3>
+            {isArchived && <p className="news-date">Published: {newsItem.createdAt?.toDate().toLocaleDateString()}</p>}
+            <p className="news-content">{newsItem.content}</p>
+            <div className="statement-container">
+                <h4 className="statement-title">Your Statement:</h4>
                 {statement && statement.newsId === newsItem.id ? (
                     <>
-                        <p className="text-gray-100 whitespace-pre-wrap text-base mb-4">{statement.content}</p>
+                        <p className="statement-content">{statement.content}</p>
                         <button
                             onClick={() => copyToClipboard(statement.content, newsItem.id)}
-                            className="px-4 py-2 bg-[#4FC3F7] hover:bg-[#ED1C24] text-white rounded-lg font-semibold text-sm transition-all duration-300 hover:scale-105"
+                            className="primary-button"
                         >
                             Copy Statement
                         </button>
                     </>
                 ) : (
-                    <p className="text-gray-300 italic">No statement assigned.</p>
+                    <p className="statement-empty">No statement assigned.</p>
                 )}
             </div>
         </div>
@@ -176,8 +177,8 @@ function AppContainer() {
 
     if (!authReady) {
         return (
-            <div className="flex items-center justify-center h-full">
-                <div className="animate-spin rounded-full h-24 w-24 border-t-4 border-[#4FC3F7]"></div>
+            <div className="loading-spinner">
+                <div className="spinner"></div>
             </div>
         );
     }
@@ -196,7 +197,7 @@ function AppContainer() {
     }
 
     return (
-        <div className="w-full h-full flex flex-col items-center justify-center">
+        <div className="app-container">
             {currentView}
         </div>
     );
@@ -214,35 +215,35 @@ function LoginScreen({ onLogin, error }) {
     });
 
     return (
-        <div className="w-full max-w-md p-8 md:p-10 space-y-6 bg-white/10 backdrop-blur-xl border border-white/20 rounded-2xl shadow-lg">
-            <h2 className="text-3xl font-bold text-center text-white">Keadilan WP Info</h2>
-            <p className="text-center text-gray-200 text-sm">Secure Campaign Portal</p>
-            <form onSubmit={handleSubmit(({ username, password }) => onLogin(username, password))} className="space-y-5">
-                <div>
-                    <label className="block mb-1 text-sm font-medium text-gray-200">Username</label>
+        <div className="login-container">
+            <h2 className="login-title">Keadilan WP Info</h2>
+            <p className="login-subtitle">Secure Campaign Portal</p>
+            <form onSubmit={handleSubmit(({ username, password }) => onLogin(username, password))} className="login-form">
+                <div className="form-group">
+                    <label className="form-label">Username</label>
                     <input
                         {...register('username')}
                         placeholder="e.g., KC_KEPONG"
-                        className="w-full px-4 py-2.5 bg-white/5 border border-white/20 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#4FC3F7] text-white text-sm"
+                        className="form-input"
                         aria-label="Username"
                     />
-                    {errors.username && <p className="text-sm text-red-400 mt-1">{errors.username.message}</p>}
+                    {errors.username && <p className="form-error">{errors.username.message}</p>}
                 </div>
-                <div>
-                    <label className="block mb-1 text-sm font-medium text-gray-200">Password</label>
+                <div className="form-group">
+                    <label className="form-label">Password</label>
                     <input
                         type="password"
                         {...register('password')}
                         placeholder="Password"
-                        className="w-full px-4 py-2.5 bg-white/5 border border-white/20 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#4FC3F7] text-white text-sm"
+                        className="form-input"
                         aria-label="Password"
                     />
-                    {errors.password && <p className="text-sm text-red-400 mt-1">{errors.password.message}</p>}
+                    {errors.password && <p className="form-error">{errors.password.message}</p>}
                 </div>
-                {error && <p className="text-sm text-center text-red-400 bg-red-900/30 p-3 rounded-lg">{error}</p>}
+                {error && <p className="error-message">{error}</p>}
                 <button
                     type="submit"
-                    className="w-full px-4 py-3 text-sm font-bold text-white bg-[#4FC3F7] rounded-lg hover:bg-[#ED1C24] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-[#1A1A1A] focus:ring-white transition-all duration-300 hover:scale-105"
+                    className="primary-button"
                     aria-label="Login to the platform"
                 >
                     Login
@@ -291,31 +292,31 @@ function UserDashboard({ user, userData, onLogout }) {
 
     if (loading) {
         return (
-            <div className="w-full max-w-4xl space-y-4">
-                <div className="h-8 bg-white/10 rounded-lg animate-pulse"></div>
-                <div className="h-64 bg-white/10 rounded-lg animate-pulse"></div>
+            <div className="dashboard-container">
+                <div className="skeleton skeleton-header pulse"></div>
+                <div className="skeleton skeleton-content pulse"></div>
             </div>
         );
     }
 
     return (
-        <div className="w-full max-w-4xl p-4 md:p-6">
-            <header className="flex flex-col md:flex-row justify-between items-center mb-8 text-white">
-                <div className="text-center md:text-left mb-4 md:mb-0">
-                    <h1 className="text-3xl font-bold">Welcome, {userData.username}</h1>
-                    <p className="text-lg text-gray-200">{userData.role} - {userData.cabang}</p>
+        <div className="dashboard-container">
+            <header className="dashboard-header">
+                <div>
+                    <h1 className="dashboard-title">Welcome, {userData.username}</h1>
+                    <p className="dashboard-subtitle">{userData.role} - {userData.cabang}</p>
                 </div>
-                <div className="flex items-center space-x-3">
+                <div className="header-buttons">
                     <button
                         onClick={() => setShowArchive(!showArchive)}
-                        className="px-4 py-2 bg-[#4FC3F7] hover:bg-[#ED1C24] text-white rounded-lg font-semibold text-sm transition-all duration-300 hover:scale-105"
+                        className="secondary-button"
                         aria-label={showArchive ? 'View latest news' : 'View archived news'}
                     >
                         {showArchive ? 'Latest News' : 'View Archive'}
                     </button>
                     <button
                         onClick={onLogout}
-                        className="px-4 py-2 bg-[#ED1C24] hover:bg-[#4FC3F7] text-white rounded-lg font-semibold text-sm transition-all duration-300 hover:scale-105"
+                        className="logout-button"
                         aria-label="Logout"
                     >
                         Logout
@@ -326,15 +327,15 @@ function UserDashboard({ user, userData, onLogout }) {
                 {!showArchive ? (
                     latestNews ? (
                         <>
-                            <h2 className="text-2xl font-semibold text-white border-b-2 border-[#4FC3F7] pb-2 mb-6">Latest News & Task</h2>
+                            <h2 className="section-title">Latest News & Task</h2>
                             <NewsItem newsItem={latestNews} userId={user.uid} copyToClipboard={copyToClipboard} />
                         </>
                     ) : (
-                        <div className="text-center text-gray-200 text-lg p-8 bg-white/10 rounded-2xl shadow-lg">No news available.</div>
+                        <div className="empty-message">No news available.</div>
                     )
                 ) : (
                     <>
-                        <h2 className="text-2xl font-semibold text-white border-b-2 border-[#4FC3F7] pb-2 mb-6">Archived News</h2>
+                        <h2 className="section-title">Archived News</h2>
                         {archive.length > 0 ? (
                             archive.map(item => (
                                 <NewsItem
@@ -346,7 +347,7 @@ function UserDashboard({ user, userData, onLogout }) {
                                 />
                             ))
                         ) : (
-                            <div className="text-center text-gray-200 text-lg p-8 bg-white/10 rounded-2xl shadow-lg">The archive is empty.</div>
+                            <div className="empty-message">The archive is empty.</div>
                         )}
                     </>
                 )}
@@ -361,50 +362,50 @@ function AdminDashboard({ onLogout }) {
     const [isSidebarOpen, setIsSidebarOpen] = useState(false);
 
     return (
-        <div className="flex min-h-screen w-full">
-            <nav className={`fixed inset-y-0 left-0 w-64 bg-white/10 backdrop-blur-xl border-r border-white/20 p-6 flex flex-col transform ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'} md:translate-x-0 transition-transform duration-300 ease-in-out z-50`}>
+        <div className="admin-container">
+            <nav className={`admin-sidebar ${isSidebarOpen ? 'open' : ''}`}>
                 <button
-                    className="md:hidden absolute top-4 right-4 text-white text-lg"
+                    className="sidebar-close"
                     onClick={() => setIsSidebarOpen(false)}
                     aria-label="Close sidebar"
                 >
                     ✕
                 </button>
-                <h1 className="text-2xl font-bold text-white mb-10">PKR Admin Panel</h1>
+                <h1 className="sidebar-title">PKR Admin Panel</h1>
                 <button
                     onClick={() => setAdminView('users')}
-                    className={`w-full text-left p-3 rounded-lg mb-2 text-sm font-semibold transition-all ${adminView === 'users' ? 'bg-[#4FC3F7] text-white' : 'text-gray-200 hover:bg-white/20'}`}
+                    className={`sidebar-button ${adminView === 'users' ? 'active' : ''}`}
                     aria-label="View user management"
                 >
                     User Management
                 </button>
                 <button
                     onClick={() => setAdminView('news')}
-                    className={`w-full text-left p-3 rounded-lg mb-2 text-sm font-semibold transition-all ${adminView === 'news' ? 'bg-[#4FC3F7] text-white' : 'text-gray-200 hover:bg-white/20'}`}
+                    className={`sidebar-button ${adminView === 'news' ? 'active' : ''}`}
                     aria-label="View news and statements"
                 >
                     News & Statements
                 </button>
                 <button
                     onClick={() => setAdminView('activity')}
-                    className={`w-full text-left p-3 rounded-lg mb-2 text-sm font-semibold transition-all ${adminView === 'activity' ? 'bg-[#4FC3F7] text-white' : 'text-gray-200 hover:bg-white/20'}`}
+                    className={`sidebar-button ${adminView === 'activity' ? 'active' : ''}`}
                     aria-label="View user activity"
                 >
                     User Activity
                 </button>
-                <div className="mt-auto">
+                <div style={{ marginTop: 'auto' }}>
                     <button
                         onClick={onLogout}
-                        className="w-full p-3 rounded-lg bg-[#ED1C24] hover:bg-[#4FC3F7] text-white font-semibold text-sm transition-all duration-300 hover:scale-105"
+                        className="logout-button"
                         aria-label="Logout"
                     >
                         Logout
                     </button>
                 </div>
             </nav>
-            <main className="flex-1 p-6 md:p-8 md:ml-64 bg-[#1A1A1A]/50">
+            <main className="admin-main">
                 <button
-                    className="md:hidden mb-4 px-4 py-2 bg-[#4FC3F7] hover:bg-[#ED1C24] text-white rounded-lg text-sm font-semibold transition-all duration-300"
+                    className="sidebar-toggle"
                     onClick={() => setIsSidebarOpen(true)}
                     aria-label="Open sidebar"
                 >
@@ -470,46 +471,44 @@ function UserManagement() {
 
     if (loading) {
         return (
-            <div className="space-y-4">
-                <div className="h-8 bg-white/10 rounded-lg animate-pulse"></div>
-                <div className="h-64 bg-white/10 rounded-lg animate-pulse"></div>
+            <div>
+                <div className="skeleton skeleton-header pulse"></div>
+                <div className="skeleton skeleton-content pulse"></div>
             </div>
         );
     }
 
     return (
         <div>
-            <h2 className="text-2xl font-bold mb-6 text-white">User Management</h2>
+            <h2 className="section-title">User Management</h2>
             <button
                 onClick={handleCreateUsers}
-                className="mb-6 px-4 py-2 bg-[#4FC3F7] hover:bg-[#ED1C24] text-white rounded-lg font-semibold text-sm transition-all duration-300 hover:scale-105"
+                className="primary-button"
+                style={{ marginBottom: '1.5rem' }}
                 aria-label="Create all WP users"
             >
                 Bulk Create Users
             </button>
-            <div className="bg-white/10 backdrop-blur-xl border border-white/20 rounded-xl p-6">
-                <table className="w-full text-left text-sm">
+            <div className="table-container">
+                <table className="table">
                     <thead>
-                        <tr className="border-b border-white/20 bg-[#4FC3F7]/10">
-                            <th className="p-3 font-semibold text-white">Username</th>
-                            <th className="p-3 font-semibold text-white">Role</th>
-                            <th className="p-3 font-semibold text-white">Cabang</th>
-                            <th className="p-3 font-semibold text-white">Actions</th>
+                        <tr>
+                            <th>Username</th>
+                            <th>Role</th>
+                            <th>Cabang</th>
+                            <th>Actions</th>
                         </tr>
                     </thead>
                     <tbody>
-                        {users.map((user, index) => (
-                            <tr
-                                key={user.id}
-                                className={`border-b border-white/10 ${index % 2 === 0 ? 'bg-white/5' : 'bg-[#4FC3F7]/5'} hover:bg-[#ED1C24]/10 transition-all`}
-                            >
-                                <td className="p-3 text-gray-100">{user.username}</td>
-                                <td className="p-3 text-gray-100">{user.role}</td>
-                                <td className="p-3 text-gray-100">{user.cabang}</td>
-                                <td className="p-3">
+                        {users.map((user) => (
+                            <tr key={user.id}>
+                                <td>{user.username}</td>
+                                <td>{user.role}</td>
+                                <td>{user.cabang}</td>
+                                <td>
                                     <button
                                         onClick={() => handleAdminPasswordReset(user.username)}
-                                        className="px-3 py-1.5 bg-[#ED1C24] hover:bg-[#4FC3F7] text-white rounded-lg text-sm font-semibold transition-all duration-300 hover:scale-105"
+                                        className="table-action-button"
                                         aria-label={`Reset password for ${user.username}`}
                                     >
                                         Reset Password
@@ -565,17 +564,17 @@ function NewsManagement() {
 
     return (
         <div>
-            <h2 className="text-2xl font-bold mb-6 text-white">News & Statements</h2>
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                <div className="bg-white/10 backdrop-blur-xl border border-white/20 rounded-xl p-6">
-                    <h3 className="text-lg font-bold mb-4 text-white">Publish News</h3>
-                    <form onSubmit={handlePublishNews} className="space-y-4">
+            <h2 className="section-title">News & Statements</h2>
+            <div className="news-grid">
+                <div className="news-panel">
+                    <h3 className="news-panel-title">Publish News</h3>
+                    <form onSubmit={handlePublishNews} className="news-form">
                         <input
                             type="text"
                             value={title}
                             onChange={e => setTitle(e.target.value)}
                             placeholder="News Title"
-                            className="w-full px-4 py-2.5 bg-white/5 border border-white/20 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#4FC3F7] text-white text-sm"
+                            className="form-input"
                             aria-label="News title"
                         />
                         <textarea
@@ -583,29 +582,29 @@ function NewsManagement() {
                             onChange={e => setContent(e.target.value)}
                             placeholder="News content..."
                             rows="6"
-                            className="w-full px-4 py-2.5 bg-white/5 border border-white/20 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#4FC3F7] text-white text-sm"
+                            className="form-input"
                             aria-label="News content"
                         ></textarea>
                         <button
                             type="submit"
-                            className="w-full px-4 py-2.5 text-sm font-bold text-white bg-[#4FC3F7] rounded-lg hover:bg-[#ED1C24] transition-all duration-300 hover:scale-105"
+                            className="primary-button"
                             aria-label="Publish news"
                         >
                             Publish News
                         </button>
                     </form>
                 </div>
-                <div className="bg-white/10 backdrop-blur-xl border border-white/20 rounded-xl p-6">
-                    <h3 className="text-lg font-bold mb-4 text-white">Assign Statements</h3>
-                    <div className="max-h-80 overflow-y-auto pr-2">
+                <div className="news-panel">
+                    <h3 className="news-panel-title">Assign Statements</h3>
+                    <div className="news-list">
                         {newsItems.map(item => (
                             <div
                                 key={item.id}
                                 onClick={() => setSelectedNewsId(item.id)}
-                                className={`p-3 rounded-lg mb-2 cursor-pointer transition-all ${selectedNewsId === item.id ? 'bg-[#4FC3F7] text-white' : 'bg-white/5 hover:bg-[#ED1C24]/10 text-gray-200'}`}
+                                className={`news-item-selectable ${selectedNewsId === item.id ? 'active' : ''}`}
                             >
-                                <p className="font-semibold text-sm">{item.title}</p>
-                                <p className="text-xs text-gray-300">{item.createdAt?.toDate().toLocaleDateString()}</p>
+                                <p className="news-item-title">{item.title}</p>
+                                <p className="news-item-date">{item.createdAt?.toDate().toLocaleDateString()}</p>
                             </div>
                         ))}
                     </div>
@@ -653,18 +652,18 @@ function StatementAssigner({ newsId }) {
     };
 
     return (
-        <div className="mt-6 bg-white/10 backdrop-blur-xl border border-white/20 rounded-xl p-6">
-            <h3 className="text-lg font-bold mb-4 text-white">Assign Statements</h3>
-            <div className="space-y-4 max-h-[50vh] overflow-y-auto pr-4">
+        <div className="statement-assigner">
+            <h3 className="news-panel-title">Assign Statements</h3>
+            <div className="statement-list">
                 {users.map(user => (
-                    <div key={user.id}>
-                        <label className="block text-sm font-medium text-gray-200">{user.username} ({user.role})</label>
+                    <div key={user.id} className="form-group">
+                        <label className="form-label">{user.username} ({user.role})</label>
                         <textarea
                             value={statements[user.id] || ''}
                             onChange={e => handleStatementChange(user.id, e.target.value)}
                             placeholder={`Statement for ${user.username}...`}
                             rows="2"
-                            className="w-full mt-1 px-4 py-2 bg-white/5 border border-white/20 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#4FC3F7] text-white text-sm"
+                            className="form-input"
                             aria-label={`Statement for ${user.username}`}
                         />
                     </div>
@@ -672,7 +671,7 @@ function StatementAssigner({ newsId }) {
             </div>
             <button
                 onClick={handleSaveStatements}
-                className="mt-4 w-full px-4 py-2.5 text-sm font-bold text-white bg-[#4FC3F7] rounded-lg hover:bg-[#ED1C24] transition-all duration-300 hover:scale-105"
+                className="primary-button"
                 aria-label="Save all statements"
             >
                 Save Statements
@@ -699,9 +698,9 @@ function UserActivityLog() {
 
     if (loading) {
         return (
-            <div className="space-y-4">
-                <div className="h-8 bg-white/10 rounded-lg animate-pulse"></div>
-                <div className="h-64 bg-white/10 rounded-lg animate-pulse"></div>
+            <div>
+                <div className="skeleton skeleton-header pulse"></div>
+                <div className="skeleton skeleton-content pulse"></div>
             </div>
         );
     }
@@ -712,28 +711,29 @@ function UserActivityLog() {
 
     return (
         <div>
-            <h2 className="text-2xl font-bold mb-6 text-white">User Activity Overview</h2>
-            <div className="bg-white/10 backdrop-blur-xl border border-white/20 rounded-xl p-6">
-                <table className="w-full text-left text-sm">
+            <h2 className="section-title">User Activity Overview</h2>
+            <div className="table-container">
+                <table className="table">
                     <thead>
-                        <tr className="border-b border-white/20 bg-[#4FC3F7]/10">
-                            <th className="p-3 font-semibold text-white">Username</th>
-                            <th className="p-3 font-semibold text-white">Last Login</th>
-                            <th className="p-3 font-semibold text-white">IP Address (Demo)</th>
-                            <th className="p-3 font-semibold text-white">Details</th>
+                        <tr>
+                            <th>Username</th>
+                            <th>Last Login</th>
+                            <th>IP Address (Demo)</th>
+                            <th>Details</th>
                         </tr>
                     </thead>
                     <tbody>
-                        {users.map((user, index) => (
+                        {users.map((user) => (
                             <tr
                                 key={user.id}
-                                className={`border-b border-white/10 ${index % 2 === 0 ? 'bg-white/5' : 'bg-[#4FC3F7]/5'} hover:bg-[#ED1C24]/10 transition-all cursor-pointer`}
                                 onClick={() => setSelectedUser(user)}
                             >
-                                <td className="p-3 text-gray-100">{user.username}</td>
-                                <td className="p-3 text-gray-100">{user.lastLogin ? user.lastLogin.toDate().toLocaleString() : 'Never'}</td>
-                                <td className="p-3 text-gray-100">{user.ipAddress || 'N/A'}</td>
-                                <td className="p-3 text-[#4FC3F7] hover:underline">View Log</td>
+                                <td>{user.username}</td>
+                                <td>{user.lastLogin ? user.lastLogin.toDate().toLocaleString() : 'Never'}</td>
+                                <td>{user.ipAddress || 'N/A'}</td>
+                                <td>
+                                    <span className="table-link">View Log</span>
+                                </td>
                             </tr>
                         ))}
                     </tbody>
@@ -760,9 +760,9 @@ function DetailedActivityView({ user, onBack }) {
 
     if (loading) {
         return (
-            <div className="space-y-4">
-                <div className="h-8 bg-white/10 rounded-lg animate-pulse"></div>
-                <div className="h-64 bg-white/10 rounded-lg animate-pulse"></div>
+            <div>
+                <div className="skeleton skeleton-header pulse"></div>
+                <div className="skeleton skeleton-content pulse"></div>
             </div>
         );
     }
@@ -771,37 +771,33 @@ function DetailedActivityView({ user, onBack }) {
         <div>
             <button
                 onClick={onBack}
-                className="mb-6 px-4 py-2 bg-[#4FC3F7] hover:bg-[#ED1C24] text-white rounded-lg text-sm font-semibold transition-all duration-300 hover:scale-105"
+                className="primary-button"
+                style={{ marginBottom: '1.5rem' }}
                 aria-label="Back to activity overview"
             >
                 ← Back to Overview
             </button>
-            <h2 className="text-2xl font-bold mb-2 text-white">Activity Log for {user.username}</h2>
-            <p className="text-gray-200 mb-6 text-base">{user.role} - {user.cabang}</p>
-            <div className="bg-white/10 backdrop-blur-xl border border-white/20 rounded-xl p-6">
-                <table className="w-full text-left text-sm">
+            <h2 className="section-title">Activity Log for {user.username}</h2>
+            <p className="dashboard-subtitle" style={{ marginBottom: '1.5rem' }}>{user.role} - {user.cabang}</p>
+            <div className="table-container">
+                <table className="table">
                     <thead>
-                        <tr className="border-b border-white/20 bg-[#4FC3F7]/10">
-                            <th className="p-3 font-semibold text-white">Timestamp</th>
-                            <th className="p-3 font-semibold text-white">Event Type</th>
-                            <th className="p-3 font-semibold text-white">Details</th>
+                        <tr>
+                            <th>Timestamp</th>
+                            <th>Event Type</th>
+                            <th>Details</th>
                         </tr>
                     </thead>
                     <tbody>
-                        {log.map((entry, index) => (
-                            <tr
-                                key={entry.id}
-                                className={`border-b border-white/10 ${index % 2 === 0 ? 'bg-white/5' : 'bg-[#4FC3F7]/5'} hover:bg-[#ED1C24]/10 transition-all`}
-                            >
-                                <td className="p-3 text-gray-100">{entry.timestamp ? entry.timestamp.toDate().toLocaleString() : '...'}</td>
-                                <td className="p-3">
-                                    <span
-                                        className={`px-3 py-1 text-xs font-semibold rounded-full ${entry.type === 'LOGIN_SUCCESS' ? 'bg-[#4FC3F7] text-white' : entry.type === 'LOGOUT' ? 'bg-[#ED1C24] text-white' : 'bg-white/20 text-white'}`}
-                                    >
+                        {log.map((entry) => (
+                            <tr key={entry.id}>
+                                <td>{entry.timestamp ? entry.timestamp.toDate().toLocaleString() : '...'}</td>
+                                <td>
+                                    <span className={`event-tag ${entry.type === 'LOGIN_SUCCESS' ? 'login' : entry.type === 'LOGOUT' ? 'logout' : 'copy'}`}>
                                         {entry.type}
                                     </span>
                                 </td>
-                                <td className="p-3 text-gray-100">{entry.newsId ? `News ID: ${entry.newsId.substring(0,10)}...` : entry.ipAddress || ''}</td>
+                                <td>{entry.newsId ? `News ID: ${entry.newsId.substring(0,10)}...` : entry.ipAddress || ''}</td>
                             </tr>
                         ))}
                     </tbody>
@@ -814,12 +810,12 @@ function DetailedActivityView({ user, onBack }) {
 // --- Root Component ---
 export default function Root() {
     return (
-        <div className="min-h-screen w-full bg-gradient-to-br from-[#ED1C24] to-[#4FC3F7] text-white font-sans flex flex-col items-center p-4 sm:p-6 lg:p-8">
-            <h1 className="text-4xl md:text-5xl font-bold text-white my-6 text-center drop-shadow-lg">PKR Campaign Platform</h1>
-            <main className="w-full h-full flex-1 flex flex-col items-center justify-center">
+        <div className="app-root">
+            <h1 className="app-header">PKR Campaign Platform</h1>
+            <main className="app-main">
                 <AppContainer />
             </main>
-            <footer className="w-full text-center py-4 text-gray-200 text-sm mt-6">
+            <footer className="app-footer">
                 ©2025 Parti Keadilan Rakyat
             </footer>
         </div>
